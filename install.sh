@@ -411,25 +411,12 @@ PY
   </section>
 
   <section class="rule-group">
-    <h3 class="rule-group-title">Posting & Flair</h3>
-    <ol class="rules-list">
-      <li><strong>Use flair:</strong> Tag posts with the correct flair [FEATURE:] for feature requests or [OT] for anything that is "off topic" when required.</li>
-      <li><strong>No low-effort posts:</strong> Provide context and effort — memes or screenshots should follow
-        community guidelines.</li>
-    </ol>
-  </section>
-
-  <section class="rule-group">
     <h3 class="rule-group-title">Moderation</h3>
     <ol class="rules-list">
       <li><strong>Follow moderator instructions:</strong> Once you post something, it's permanant, however the admins can remove your post if it deems to violate our rules.</li>
       <li><strong>Report rule-breaking content:</strong> Due to the nature of there not being a account creation, we rely heavily on our team of mods, which is just me and my close friends, we wil remove anythng that deems unrelated to our core focus of our projects.</li>
     </ol>
   </section>
-
-  <footer class="rules-footer">
-    <p class="muted">By participating you agree to follow these rules. Repeated violations may result in bans. Although, since we don't know who posted such post, we cannot "ban" you per say. We just have to follow a "trust me bro" situtation.</p>
-  </footer>
 </aside>
 
 </html>
