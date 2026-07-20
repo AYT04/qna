@@ -48,7 +48,286 @@ init_project() {
   cd "$target_dir"
 
   cat > requirements.txt <<'EOF'
-Flask>=2.3.0
+# Flask>=2.3.0
+Flask==3.0.3
+Werkzeug==3.0.1
+Jinja2==3.1.4
+MarkupSafe==2.1.5
+itsdangerous==2.2.0
+click==8.1.7
+EOF
+
+cat > cia.py <<'EOF'
+import os
+import zipfile
+from flask import Flask, render_template, request, redirect, url_for, abort, send_from_directory
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+
+# Configuration
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'zip', '7z', 'rar', 'tar', 'gz'} # Add extensions as needed
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Limit uploads to 500MB
+
+# Ensure upload directory exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_file_metadata(filepath):
+    """
+    Extracts metadata without allowing file download.
+    For ZIPs, it counts internal files. For others, returns basic OS stats.
+    """
+    stats = os.stat(filepath)
+    size_mb = round(stats.st_size / (1024 * 1024), 2)
+    file_type = "Archive"
+    internal_count = "N/A"
+
+    # Try to read ZIP metadata specifically
+    if filepath.lower().endswith('.zip'):
+        try:
+            with zipfile.ZipFile(filepath, 'r') as z:
+                internal_count = len(z.namelist())
+                file_type = "ZIP Archive"
+        except zipfile.BadZipFile:
+            file_type = "Corrupt ZIP"
+    
+    return {
+        "size": f"{size_mb} MB",
+        "type": file_type,
+        "contents": internal_count,
+        "modified": stats.st_mtime
+    }
+
+@app.route('/')
+def index():
+    files = []
+    # List all files in the upload folder
+    for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+        if allowed_file(filename):
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            meta = get_file_metadata(filepath)
+            files.append({
+                "name": filename,
+                "meta": meta
+            })
+    # Sort by name
+    files.sort(key=lambda x: x['name'])
+    return render_template('index.html', files=files)
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return redirect(request.url)
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return redirect(request.url)
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return redirect(url_for('index'))
+    
+    return "Invalid file type", 400
+
+# SECURITY CRITICAL: Explicitly block any attempt to download files
+@app.route('/uploads/<path:filename>')
+def blocked_download(filename):
+    """
+    This route catches any direct access attempts to the uploads folder
+    and returns a 403 Forbidden error.
+    """
+    abort(403, description="Downloads are disabled for this archive.")
+
+# Optional: Block directory listing via web server config is preferred, 
+# but this adds a layer of safety within Flask.
+@app.route('/uploads/')
+def blocked_directory():
+    abort(403, description="Directory listing is disabled.")
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
+EOF
+
+cat > templates/cia.html <<'HTML'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>candian internet archive</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --card-bg: #16213e;
+            --accent: #0f3460;
+            --text: #e94560;
+            --text-light: #f1f1f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { color: var(--text); margin-bottom: 30px; }
+
+        .upload-container {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 40px;
+            border: 2px dashed var(--accent);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload {
+            border: 1px solid var(--text);
+            background: var(--accent);
+            color: white;
+            display: inline-block;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .custom-file-upload:hover { background: var(--text); }
+
+        button {
+            background: var(--text);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+
+        button:hover { opacity: 0.9; }
+
+        .file-list {
+            width: 100%;
+            max-width: 900px;
+            border-collapse: collapse;
+            background: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .file-list th, .file-list td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--accent);
+        }
+
+        .file-list th {
+            background-color: var(--accent);
+            color: var(--text);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        .file-list tr:hover { background-color: rgba(255,255,255,0.05); }
+
+        .badge {
+            background: var(--accent);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #fff;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #888;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎮 ROM Archive Manager</h1>
+
+    <!-- Upload Section -->
+    <div class="upload-container">
+        <h3>Upload New Archive</h3>
+        <p style="font-size: 0.9rem; color: #aaa;">Supported: .zip, .7z, .rar (Downloads Disabled)</p>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <label for="file-upload" class="custom-file-upload">
+                📂 Choose File
+            </label>
+            <input id="file-upload" name="file" type="file" required onchange="document.getElementById('file-name').innerText = this.files[0].name">
+            <span id="file-name" style="margin-left: 15px; font-style: italic;"></span>
+            <br><br>
+            <button type="submit">Upload Archive</button>
+        </form>
+    </div>
+
+    <!-- File List Section -->
+    <table class="file-list">
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th>Type</th>
+                <th>Size</th>
+                <th>Internal Files</th>
+                <th>Last Modified</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if files %}
+                {% for file in files %}
+                <tr>
+                    <td><strong>{{ file.name }}</strong></td>
+                    <td><span class="badge">{{ file.meta.type }}</span></td>
+                    <td>{{ file.meta.size }}</td>
+                    <td>{{ file.meta.contents }}</td>
+                    <td>{{ file.meta.modified | int | timestamp_to_date }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5" class="empty-state">No archives uploaded yet.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <script>
+        // Simple client-side validation feedback
+        document.querySelector('form').onsubmit = function() {
+            const btn = document.querySelector('button[type="submit"]');
+            btn.innerText = "Uploading...";
+            btn.disabled = true;
+        };
+    </script>
+</body>
+</html>
 EOF
 
   cat > app.py <<'PY'
@@ -119,6 +398,10 @@ def show_post(slug: str):
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=True)
+    # cia date & time functionality
+    @app.template_filter('timestamp_to_date')
+      def timestamp_to_date_filter(timestamp):
+        return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M')
 PY
 
   mkdir -p templates
