@@ -154,7 +154,8 @@ def blocked_directory():
     abort(403, description="Directory listing is disabled.")
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # app.run(debug=True, port=5000)
+    # not sure if i need that since its already added above...?
 EOF
 
 cat > templates/cia.html <<'HTML'
@@ -163,7 +164,7 @@ cat > templates/cia.html <<'HTML'
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>candian internet archive</title>
+    <title>canadian internet archive</title>
     <style>
         :root {
             --bg-color: #1a1a2e;
