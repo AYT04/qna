@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🇨🇦 Canadian Preservation Archive</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>🇨🇦 Canadian Preservation Archive</h1>
+        <p>Preserving digital history. Owned by friends, for everyone.</p>
+        <div class="auth-controls">
+            {% if current_user.is_authenticated %}
+                <span>Welcome, {{ current_user.id }}</span>
+                <a href="{{ url_for('logout') }}" class="btn">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="btn">Friend Login</a>
+            {% endif %}
+        </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Upload Section (Only for Friends) -->
+    {% if current_user.is_authenticated %}
+    <section class="upload-section">
+        <h2>📤 Upload New Preservation</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <button type="submit" class="btn">Upload File</button>
+        </form>
+    </section>
+    {% endif %}
+
+    <!-- Search Bar -->
+    <section class="search-section">
+        <input type="text" id="searchInput" onkeyup="filterFiles()" placeholder="Search preserved files by name...">
+    </section>
+
+    <!-- File Table -->
+    <table id="filesTable">
+        <thead>
+            <tr>
+                <th>File Name</th>
+                <th>Size (MB)</th>
+                <th>Date Modified</th>
+                <th>SHA256 Checksum</th>
+                {% if current_user.is_authenticated %}<th>Download</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in files %}
+            <tr>
+                <td class="fname">{{ file.name }}</td>
+                <td>{{ (file.size / 1024 / 1024) | round(2) }}</td>
+                <td>{{ file.modified }}</td>
+                <td class="checksum" title="{{ file.checksum }}">{{ file.checksum[:16] }}...</td>
+                {% if current_user.is_authenticated %}
+                <td><a href="{{ url_for('download', filename=file.name) }}" class="btn-sm">⬇️</a></td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        function filterFiles() {
+            var input, filter, table, tr, td, i, txtValue;
+            input = document.getElementById("searchInput");
+            filter = input.value.toUpperCase();
+            table = document.getElementById("filesTable");
+            tr = table.getElementsByTagName("tr");
+            for (i = 1; i < tr.length; i++) { // Skip header
+                td = tr[i].getElementsByTagName("td")[0]; // Filename column
+                if (td) {
+                    txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }       
+            }
+        }
+    </script>
+</body>
+</html>
